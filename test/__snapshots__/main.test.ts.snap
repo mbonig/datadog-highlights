@@ -1,0 +1,2186 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Snapshot 1`] = `
+Object {
+  "Mappings": Object {
+    "ServiceprincipalMap": Object {
+      "af-south-1": Object {
+        "states": "states.af-south-1.amazonaws.com",
+      },
+      "ap-east-1": Object {
+        "states": "states.ap-east-1.amazonaws.com",
+      },
+      "ap-northeast-1": Object {
+        "states": "states.ap-northeast-1.amazonaws.com",
+      },
+      "ap-northeast-2": Object {
+        "states": "states.ap-northeast-2.amazonaws.com",
+      },
+      "ap-northeast-3": Object {
+        "states": "states.ap-northeast-3.amazonaws.com",
+      },
+      "ap-south-1": Object {
+        "states": "states.ap-south-1.amazonaws.com",
+      },
+      "ap-southeast-1": Object {
+        "states": "states.ap-southeast-1.amazonaws.com",
+      },
+      "ap-southeast-2": Object {
+        "states": "states.ap-southeast-2.amazonaws.com",
+      },
+      "ap-southeast-3": Object {
+        "states": "states.ap-southeast-3.amazonaws.com",
+      },
+      "ca-central-1": Object {
+        "states": "states.ca-central-1.amazonaws.com",
+      },
+      "cn-north-1": Object {
+        "states": "states.cn-north-1.amazonaws.com",
+      },
+      "cn-northwest-1": Object {
+        "states": "states.cn-northwest-1.amazonaws.com",
+      },
+      "eu-central-1": Object {
+        "states": "states.eu-central-1.amazonaws.com",
+      },
+      "eu-north-1": Object {
+        "states": "states.eu-north-1.amazonaws.com",
+      },
+      "eu-south-1": Object {
+        "states": "states.eu-south-1.amazonaws.com",
+      },
+      "eu-south-2": Object {
+        "states": "states.eu-south-2.amazonaws.com",
+      },
+      "eu-west-1": Object {
+        "states": "states.eu-west-1.amazonaws.com",
+      },
+      "eu-west-2": Object {
+        "states": "states.eu-west-2.amazonaws.com",
+      },
+      "eu-west-3": Object {
+        "states": "states.eu-west-3.amazonaws.com",
+      },
+      "me-south-1": Object {
+        "states": "states.me-south-1.amazonaws.com",
+      },
+      "sa-east-1": Object {
+        "states": "states.sa-east-1.amazonaws.com",
+      },
+      "us-east-1": Object {
+        "states": "states.us-east-1.amazonaws.com",
+      },
+      "us-east-2": Object {
+        "states": "states.us-east-2.amazonaws.com",
+      },
+      "us-gov-east-1": Object {
+        "states": "states.us-gov-east-1.amazonaws.com",
+      },
+      "us-gov-west-1": Object {
+        "states": "states.us-gov-west-1.amazonaws.com",
+      },
+      "us-iso-east-1": Object {
+        "states": "states.amazonaws.com",
+      },
+      "us-iso-west-1": Object {
+        "states": "states.amazonaws.com",
+      },
+      "us-isob-east-1": Object {
+        "states": "states.amazonaws.com",
+      },
+      "us-west-1": Object {
+        "states": "states.us-west-1.amazonaws.com",
+      },
+      "us-west-2": Object {
+        "states": "states.us-west-2.amazonaws.com",
+      },
+    },
+  },
+  "Parameters": Object {
+    "BootstrapVersion": Object {
+      "Default": "/cdk-bootstrap/hnb659fds/version",
+      "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]",
+      "Type": "AWS::SSM::Parameter::Value<String>",
+    },
+  },
+  "Resources": Object {
+    "BucketNotificationsHandler050a0587b7544547bf325f094a3db8347ECC3691": Object {
+      "DependsOn": Array [
+        "BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleDefaultPolicy2CF63D36",
+        "BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC",
+      ],
+      "Properties": Object {
+        "Code": Object {
+          "ZipFile": "import boto3  # type: ignore
+import json
+import logging
+import urllib.request
+
+s3 = boto3.client(\\"s3\\")
+
+EVENTBRIDGE_CONFIGURATION = 'EventBridgeConfiguration'
+
+CONFIGURATION_TYPES = [\\"TopicConfigurations\\", \\"QueueConfigurations\\", \\"LambdaFunctionConfigurations\\"]
+
+def handler(event: dict, context):
+  response_status = \\"SUCCESS\\"
+  error_message = \\"\\"
+  try:
+    props = event[\\"ResourceProperties\\"]
+    bucket = props[\\"BucketName\\"]
+    notification_configuration = props[\\"NotificationConfiguration\\"]
+    request_type = event[\\"RequestType\\"]
+    managed = props.get('Managed', 'true').lower() == 'true'
+    stack_id = event['StackId']
+
+    if managed:
+      config = handle_managed(request_type, notification_configuration)
+    else:
+      config = handle_unmanaged(bucket, stack_id, request_type, notification_configuration)
+
+    put_bucket_notification_configuration(bucket, config)
+  except Exception as e:
+    logging.exception(\\"Failed to put bucket notification configuration\\")
+    response_status = \\"FAILED\\"
+    error_message = f\\"Error: {str(e)}. \\"
+  finally:
+    submit_response(event, context, response_status, error_message)
+
+def handle_managed(request_type, notification_configuration):
+  if request_type == 'Delete':
+    return {}
+  return notification_configuration
+
+def handle_unmanaged(bucket, stack_id, request_type, notification_configuration):
+  external_notifications = find_external_notifications(bucket, stack_id)
+
+  if request_type == 'Delete':
+    return external_notifications
+
+  def with_id(notification):
+    notification['Id'] = f\\"{stack_id}-{hash(json.dumps(notification, sort_keys=True))}\\"
+    return notification
+
+  notifications = {}
+  for t in CONFIGURATION_TYPES:
+    external = external_notifications.get(t, [])
+    incoming = [with_id(n) for n in notification_configuration.get(t, [])]
+    notifications[t] = external + incoming
+
+  if EVENTBRIDGE_CONFIGURATION in notification_configuration:
+    notifications[EVENTBRIDGE_CONFIGURATION] = notification_configuration[EVENTBRIDGE_CONFIGURATION]
+  elif EVENTBRIDGE_CONFIGURATION in external_notifications:
+    notifications[EVENTBRIDGE_CONFIGURATION] = external_notifications[EVENTBRIDGE_CONFIGURATION]
+
+  return notifications
+
+def find_external_notifications(bucket, stack_id):
+  existing_notifications = get_bucket_notification_configuration(bucket)
+  external_notifications = {}
+  for t in CONFIGURATION_TYPES:
+    external_notifications[t] = [n for n in existing_notifications.get(t, []) if not n['Id'].startswith(f\\"{stack_id}-\\")]
+
+  if EVENTBRIDGE_CONFIGURATION in existing_notifications:
+    external_notifications[EVENTBRIDGE_CONFIGURATION] = existing_notifications[EVENTBRIDGE_CONFIGURATION]
+
+  return external_notifications
+
+def get_bucket_notification_configuration(bucket):
+  return s3.get_bucket_notification_configuration(Bucket=bucket)
+
+def put_bucket_notification_configuration(bucket, notification_configuration):
+  s3.put_bucket_notification_configuration(Bucket=bucket, NotificationConfiguration=notification_configuration)
+
+def submit_response(event: dict, context, response_status: str, error_message: str):
+  response_body = json.dumps(
+    {
+      \\"Status\\": response_status,
+      \\"Reason\\": f\\"{error_message}See the details in CloudWatch Log Stream: {context.log_stream_name}\\",
+      \\"PhysicalResourceId\\": event.get(\\"PhysicalResourceId\\") or event[\\"LogicalResourceId\\"],
+      \\"StackId\\": event[\\"StackId\\"],
+      \\"RequestId\\": event[\\"RequestId\\"],
+      \\"LogicalResourceId\\": event[\\"LogicalResourceId\\"],
+      \\"NoEcho\\": False,
+    }
+  ).encode(\\"utf-8\\")
+  headers = {\\"content-type\\": \\"\\", \\"content-length\\": str(len(response_body))}
+  try:
+    req = urllib.request.Request(url=event[\\"ResponseURL\\"], headers=headers, data=response_body, method=\\"PUT\\")
+    with urllib.request.urlopen(req) as response:
+      print(response.read().decode(\\"utf-8\\"))
+    print(\\"Status code: \\" + response.reason)
+  except Exception as e:
+      print(\\"send(..) failed executing request.urlopen(..): \\" + str(e))
+",
+        },
+        "Description": "AWS CloudFormation handler for \\"Custom::S3BucketNotifications\\" resources (@aws-cdk/aws-s3)",
+        "Handler": "index.handler",
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC",
+            "Arn",
+          ],
+        },
+        "Runtime": "python3.7",
+        "Timeout": 300,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleDefaultPolicy2CF63D36": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "s3:PutBucketNotification",
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleDefaultPolicy2CF63D36",
+        "Roles": Array [
+          Object {
+            "Ref": "BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C81C01536": Object {
+      "DependsOn": Array [
+        "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRoleDefaultPolicy88902FDF",
+        "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265",
+      ],
+      "Properties": Object {
+        "Code": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "f98b78092dcdd31f5e6d47489beb5f804d4835ef86a8085d0a2053cb9ae711da.zip",
+        },
+        "Handler": "index.handler",
+        "Layers": Array [
+          Object {
+            "Ref": "TesterTestFileDeploymentAwsCliLayer8084A319",
+          },
+        ],
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265",
+            "Arn",
+          ],
+        },
+        "Runtime": "python3.7",
+        "Timeout": 900,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRoleDefaultPolicy88902FDF": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": Array [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+              ],
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      "arn:",
+                      Object {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":s3:::",
+                      Object {
+                        "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+                      },
+                    ],
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      "arn:",
+                      Object {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":s3:::",
+                      Object {
+                        "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+                      },
+                      "/*",
+                    ],
+                  ],
+                },
+              ],
+            },
+            Object {
+              "Action": Array [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+                "s3:DeleteObject*",
+                "s3:PutObject",
+                "s3:PutObjectLegalHold",
+                "s3:PutObjectRetention",
+                "s3:PutObjectTagging",
+                "s3:PutObjectVersionTagging",
+                "s3:Abort*",
+              ],
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "MediaBucketBCBB02BA",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "MediaBucketBCBB02BA",
+                          "Arn",
+                        ],
+                      },
+                      "/*",
+                    ],
+                  ],
+                },
+              ],
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRoleDefaultPolicy88902FDF",
+        "Roles": Array [
+          Object {
+            "Ref": "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A": Object {
+      "DependsOn": Array [
+        "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB",
+        "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB",
+      ],
+      "Properties": Object {
+        "Code": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "4cd567bf52e0f31674ae9e960efae8855b8b1249fa9997799ae47dc9f80e9ff8.zip",
+        },
+        "Handler": "index.handler",
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs14.x",
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": Array [
+                "logs:PutRetentionPolicy",
+                "logs:DeleteRetentionPolicy",
+              ],
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB",
+        "Roles": Array [
+          Object {
+            "Ref": "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRole9741ECFB",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "MediaBucketBCBB02BA": Object {
+      "DeletionPolicy": "Retain",
+      "Properties": Object {
+        "PublicAccessBlockConfiguration": Object {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true,
+        },
+        "Tags": Array [
+          Object {
+            "Key": "aws-cdk:cr-owned:test/:cbc36885",
+            "Value": "true",
+          },
+        ],
+      },
+      "Type": "AWS::S3::Bucket",
+      "UpdateReplacePolicy": "Retain",
+    },
+    "MediaBucketNotifications36AC1320": Object {
+      "Properties": Object {
+        "BucketName": Object {
+          "Ref": "MediaBucketBCBB02BA",
+        },
+        "Managed": true,
+        "NotificationConfiguration": Object {
+          "EventBridgeConfiguration": Object {},
+        },
+        "ServiceToken": Object {
+          "Fn::GetAtt": Array [
+            "BucketNotificationsHandler050a0587b7544547bf325f094a3db8347ECC3691",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "Custom::S3BucketNotifications",
+    },
+    "TesterTestFileDeploymentAwsCliLayer8084A319": Object {
+      "Properties": Object {
+        "Content": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "9224197a0988613189788525036306b333034895bb69a8220b40e52dced6a8b7.zip",
+        },
+        "Description": "/opt/awscli/aws",
+      },
+      "Type": "AWS::Lambda::LayerVersion",
+    },
+    "TesterTestFileDeploymentCustomResource644807CB": Object {
+      "DeletionPolicy": "Delete",
+      "Properties": Object {
+        "DestinationBucketKeyPrefix": "test/",
+        "DestinationBucketName": Object {
+          "Ref": "MediaBucketBCBB02BA",
+        },
+        "Prune": true,
+        "ServiceToken": Object {
+          "Fn::GetAtt": Array [
+            "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C81C01536",
+            "Arn",
+          ],
+        },
+        "SourceBucketNames": Array [
+          Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+        ],
+        "SourceObjectKeys": Array [
+          "cfe6490ee890d59d2bea5bd51da61e3c6dd524df5ffdc7acd8ea202e871f17cd.zip",
+        ],
+      },
+      "Type": "Custom::CDKBucketDeployment",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "TesterTestingMachine249ED5B8": Object {
+      "DependsOn": Array [
+        "TesterTestingMachineRoleDefaultPolicy4832C2A4",
+        "TesterTestingMachineRoleB44EFBE7",
+      ],
+      "Properties": Object {
+        "DefinitionString": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "{\\"Comment\\":\\"A description of my state machine\\",\\"StartAt\\":\\"CopyObject\\",\\"States\\":{\\"CopyObject\\":{\\"Type\\":\\"Task\\",\\"Next\\":\\"GetObjectAttributes\\",\\"Parameters\\":{\\"Bucket\\":\\"",
+              Object {
+                "Ref": "MediaBucketBCBB02BA",
+              },
+              "\\",\\"CopySource\\":\\"",
+              Object {
+                "Ref": "MediaBucketBCBB02BA",
+              },
+              "/test/test.mp4\\",\\"Key\\":\\"uploads/test.mp4\\"},\\"Resource\\":\\"arn:aws:states:::aws-sdk:s3:copyObject\\"},\\"GetObjectAttributes\\":{\\"Type\\":\\"Task\\",\\"Next\\":\\"Choice\\",\\"Parameters\\":{\\"Bucket\\":\\"",
+              Object {
+                "Ref": "MediaBucketBCBB02BA",
+              },
+              "\\",\\"Key\\":\\"converted/test.mp4\\",\\"ObjectAttributes\\":[\\"ETag\\"]},\\"Resource\\":\\"arn:aws:states:::aws-sdk:s3:getObjectAttributes\\",\\"ResultPath\\":\\"$.getObjectResults\\",\\"Catch\\":[{\\"ErrorEquals\\":[\\"States.TaskFailed\\"],\\"Next\\":\\"Choice\\"}]},\\"Choice\\":{\\"Type\\":\\"Choice\\",\\"Choices\\":[{\\"Variable\\":\\"$.getObjectResults\\",\\"IsPresent\\":true,\\"Next\\":\\"DeleteObjects\\"},{\\"Variable\\":\\"$.Error\\",\\"StringEquals\\":\\"S3.NoSuchKeyException\\",\\"Next\\":\\"Wait\\"}]},\\"DeleteObjects\\":{\\"Type\\":\\"Task\\",\\"End\\":true,\\"Parameters\\":{\\"Bucket\\":\\"",
+              Object {
+                "Ref": "MediaBucketBCBB02BA",
+              },
+              "\\",\\"Delete\\":{\\"Objects\\":[{\\"Key\\":\\"converted/test.mp4\\"},{\\"Key\\":\\"uploads/test.mp4\\"}]}},\\"Resource\\":\\"arn:aws:states:::aws-sdk:s3:deleteObjects\\"},\\"Wait\\":{\\"Type\\":\\"Wait\\",\\"Seconds\\":30,\\"Next\\":\\"GetObjectAttributes\\"}},\\"TimeoutSeconds\\":60}",
+            ],
+          ],
+        },
+        "RoleArn": Object {
+          "Fn::GetAtt": Array [
+            "TesterTestingMachineRoleB44EFBE7",
+            "Arn",
+          ],
+        },
+        "StateMachineName": "Testing-Transcoder",
+      },
+      "Type": "AWS::StepFunctions::StateMachine",
+    },
+    "TesterTestingMachineRoleB44EFBE7": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": Object {
+                  "Fn::FindInMap": Array [
+                    "ServiceprincipalMap",
+                    Object {
+                      "Ref": "AWS::Region",
+                    },
+                    "states",
+                  ],
+                },
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "TesterTestingMachineRoleDefaultPolicy4832C2A4": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": Array [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+              ],
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "MediaBucketBCBB02BA",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "MediaBucketBCBB02BA",
+                          "Arn",
+                        ],
+                      },
+                      "/test/test.mp4",
+                    ],
+                  ],
+                },
+              ],
+            },
+            Object {
+              "Action": Array [
+                "s3:DeleteObject*",
+                "s3:PutObject",
+                "s3:PutObjectLegalHold",
+                "s3:PutObjectRetention",
+                "s3:PutObjectTagging",
+                "s3:PutObjectVersionTagging",
+                "s3:Abort*",
+              ],
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "MediaBucketBCBB02BA",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "MediaBucketBCBB02BA",
+                          "Arn",
+                        ],
+                      },
+                      "/uploads/test.mp4",
+                    ],
+                  ],
+                },
+              ],
+            },
+            Object {
+              "Action": Array [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+              ],
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "MediaBucketBCBB02BA",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "MediaBucketBCBB02BA",
+                          "Arn",
+                        ],
+                      },
+                      "/converted/test.mp4",
+                    ],
+                  ],
+                },
+              ],
+            },
+            Object {
+              "Action": "s3:DeleteObject*",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    Object {
+                      "Fn::GetAtt": Array [
+                        "MediaBucketBCBB02BA",
+                        "Arn",
+                      ],
+                    },
+                    "/uploads/test.mp4",
+                  ],
+                ],
+              },
+            },
+            Object {
+              "Action": "s3:DeleteObject*",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    Object {
+                      "Fn::GetAtt": Array [
+                        "MediaBucketBCBB02BA",
+                        "Arn",
+                      ],
+                    },
+                    "/converted/test.mp4",
+                  ],
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "TesterTestingMachineRoleDefaultPolicy4832C2A4",
+        "Roles": Array [
+          Object {
+            "Ref": "TesterTestingMachineRoleB44EFBE7",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "TesterTestsIsCompleteHandler43699701": Object {
+      "DependsOn": Array [
+        "TesterTestsIsCompleteHandlerServiceRoleDefaultPolicyFC1D5151",
+        "TesterTestsIsCompleteHandlerServiceRoleD8C56A9B",
+      ],
+      "Properties": Object {
+        "Code": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "bbabe4652bcb9c2ce4bfd87c8803d55a7f0fc19d7c7b20f97f03ed47c60968f3.zip",
+        },
+        "Environment": Object {
+          "Variables": Object {
+            "STATE_MACHINE_ARN": Object {
+              "Ref": "TesterTestsStateMachine8B6B417C",
+            },
+          },
+        },
+        "Handler": "intrinsic-validator-provider.isCompleteHandler",
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "TesterTestsIsCompleteHandlerServiceRoleD8C56A9B",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs14.x",
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "TesterTestsIsCompleteHandlerLogRetention8A734071": Object {
+      "Properties": Object {
+        "LogGroupName": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "/aws/lambda/",
+              Object {
+                "Ref": "TesterTestsIsCompleteHandler43699701",
+              },
+            ],
+          ],
+        },
+        "RetentionInDays": 30,
+        "ServiceToken": Object {
+          "Fn::GetAtt": Array [
+            "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "Custom::LogRetention",
+    },
+    "TesterTestsIsCompleteHandlerServiceRoleD8C56A9B": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "TesterTestsIsCompleteHandlerServiceRoleDefaultPolicyFC1D5151": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": Array [
+                "states:ListExecutions",
+                "states:ListStateMachines",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Ref": "TesterTestsStateMachine8B6B417C",
+              },
+            },
+            Object {
+              "Action": Array [
+                "states:DescribeExecution",
+                "states:DescribeStateMachineForExecution",
+                "states:GetExecutionHistory",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    "arn:",
+                    Object {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":states:",
+                    Object {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
+                    Object {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":execution:",
+                    Object {
+                      "Fn::Select": Array [
+                        6,
+                        Object {
+                          "Fn::Split": Array [
+                            ":",
+                            Object {
+                              "Ref": "TesterTestsStateMachine8B6B417C",
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                    ":*",
+                  ],
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
+                "states:ListActivities",
+                "states:DescribeStateMachine",
+                "states:DescribeActivity",
+              ],
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "TesterTestsIsCompleteHandlerServiceRoleDefaultPolicyFC1D5151",
+        "Roles": Array [
+          Object {
+            "Ref": "TesterTestsIsCompleteHandlerServiceRoleD8C56A9B",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "TesterTestsOnEventHandler3A27D66C": Object {
+      "DependsOn": Array [
+        "TesterTestsOnEventHandlerServiceRoleDefaultPolicyEB30F870",
+        "TesterTestsOnEventHandlerServiceRole36F953E6",
+      ],
+      "Properties": Object {
+        "Code": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "bbabe4652bcb9c2ce4bfd87c8803d55a7f0fc19d7c7b20f97f03ed47c60968f3.zip",
+        },
+        "Environment": Object {
+          "Variables": Object {
+            "STATE_MACHINE_ARN": Object {
+              "Ref": "TesterTestsStateMachine8B6B417C",
+            },
+          },
+        },
+        "Handler": "intrinsic-validator-provider.onEventHandler",
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "TesterTestsOnEventHandlerServiceRole36F953E6",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs14.x",
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "TesterTestsOnEventHandlerLogRetention1331A03D": Object {
+      "Properties": Object {
+        "LogGroupName": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "/aws/lambda/",
+              Object {
+                "Ref": "TesterTestsOnEventHandler3A27D66C",
+              },
+            ],
+          ],
+        },
+        "RetentionInDays": 30,
+        "ServiceToken": Object {
+          "Fn::GetAtt": Array [
+            "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "Custom::LogRetention",
+    },
+    "TesterTestsOnEventHandlerServiceRole36F953E6": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "TesterTestsOnEventHandlerServiceRoleDefaultPolicyEB30F870": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "states:StartExecution",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Ref": "TesterTestsStateMachine8B6B417C",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "TesterTestsOnEventHandlerServiceRoleDefaultPolicyEB30F870",
+        "Roles": Array [
+          Object {
+            "Ref": "TesterTestsOnEventHandlerServiceRole36F953E6",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "TesterTestsProviderframeworkisComplete1488F88A": Object {
+      "DependsOn": Array [
+        "TesterTestsProviderframeworkisCompleteServiceRoleDefaultPolicy5AEEC3DA",
+        "TesterTestsProviderframeworkisCompleteServiceRole68E80BA6",
+      ],
+      "Properties": Object {
+        "Code": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "eaeb69bc290b516fe3b049f89d6118b22249df682fbabf56af300cf345198574.zip",
+        },
+        "Description": "AWS CDK resource provider framework - isComplete (test/Tester/Tests/Provider)",
+        "Environment": Object {
+          "Variables": Object {
+            "USER_IS_COMPLETE_FUNCTION_ARN": Object {
+              "Fn::GetAtt": Array [
+                "TesterTestsIsCompleteHandler43699701",
+                "Arn",
+              ],
+            },
+            "USER_ON_EVENT_FUNCTION_ARN": Object {
+              "Fn::GetAtt": Array [
+                "TesterTestsOnEventHandler3A27D66C",
+                "Arn",
+              ],
+            },
+          },
+        },
+        "Handler": "framework.isComplete",
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "TesterTestsProviderframeworkisCompleteServiceRole68E80BA6",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs14.x",
+        "Timeout": 900,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "TesterTestsProviderframeworkisCompleteLogRetention9E9FE267": Object {
+      "Properties": Object {
+        "LogGroupName": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "/aws/lambda/",
+              Object {
+                "Ref": "TesterTestsProviderframeworkisComplete1488F88A",
+              },
+            ],
+          ],
+        },
+        "RetentionInDays": 30,
+        "ServiceToken": Object {
+          "Fn::GetAtt": Array [
+            "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "Custom::LogRetention",
+    },
+    "TesterTestsProviderframeworkisCompleteServiceRole68E80BA6": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "TesterTestsProviderframeworkisCompleteServiceRoleDefaultPolicy5AEEC3DA": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "lambda:InvokeFunction",
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "TesterTestsOnEventHandler3A27D66C",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "TesterTestsOnEventHandler3A27D66C",
+                          "Arn",
+                        ],
+                      },
+                      ":*",
+                    ],
+                  ],
+                },
+              ],
+            },
+            Object {
+              "Action": "lambda:InvokeFunction",
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "TesterTestsIsCompleteHandler43699701",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "TesterTestsIsCompleteHandler43699701",
+                          "Arn",
+                        ],
+                      },
+                      ":*",
+                    ],
+                  ],
+                },
+              ],
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "TesterTestsProviderframeworkisCompleteServiceRoleDefaultPolicy5AEEC3DA",
+        "Roles": Array [
+          Object {
+            "Ref": "TesterTestsProviderframeworkisCompleteServiceRole68E80BA6",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "TesterTestsProviderframeworkonEventEAD32E47": Object {
+      "DependsOn": Array [
+        "TesterTestsProviderframeworkonEventServiceRoleDefaultPolicyB044D708",
+        "TesterTestsProviderframeworkonEventServiceRole15D64904",
+      ],
+      "Properties": Object {
+        "Code": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "eaeb69bc290b516fe3b049f89d6118b22249df682fbabf56af300cf345198574.zip",
+        },
+        "Description": "AWS CDK resource provider framework - onEvent (test/Tester/Tests/Provider)",
+        "Environment": Object {
+          "Variables": Object {
+            "USER_IS_COMPLETE_FUNCTION_ARN": Object {
+              "Fn::GetAtt": Array [
+                "TesterTestsIsCompleteHandler43699701",
+                "Arn",
+              ],
+            },
+            "USER_ON_EVENT_FUNCTION_ARN": Object {
+              "Fn::GetAtt": Array [
+                "TesterTestsOnEventHandler3A27D66C",
+                "Arn",
+              ],
+            },
+            "WAITER_STATE_MACHINE_ARN": Object {
+              "Ref": "TesterTestsProviderwaiterstatemachine7E5EAE02",
+            },
+          },
+        },
+        "Handler": "framework.onEvent",
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "TesterTestsProviderframeworkonEventServiceRole15D64904",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs14.x",
+        "Timeout": 900,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "TesterTestsProviderframeworkonEventLogRetentionF76DB184": Object {
+      "Properties": Object {
+        "LogGroupName": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "/aws/lambda/",
+              Object {
+                "Ref": "TesterTestsProviderframeworkonEventEAD32E47",
+              },
+            ],
+          ],
+        },
+        "RetentionInDays": 30,
+        "ServiceToken": Object {
+          "Fn::GetAtt": Array [
+            "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "Custom::LogRetention",
+    },
+    "TesterTestsProviderframeworkonEventServiceRole15D64904": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "TesterTestsProviderframeworkonEventServiceRoleDefaultPolicyB044D708": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "lambda:InvokeFunction",
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "TesterTestsOnEventHandler3A27D66C",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "TesterTestsOnEventHandler3A27D66C",
+                          "Arn",
+                        ],
+                      },
+                      ":*",
+                    ],
+                  ],
+                },
+              ],
+            },
+            Object {
+              "Action": "lambda:InvokeFunction",
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "TesterTestsIsCompleteHandler43699701",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "TesterTestsIsCompleteHandler43699701",
+                          "Arn",
+                        ],
+                      },
+                      ":*",
+                    ],
+                  ],
+                },
+              ],
+            },
+            Object {
+              "Action": "states:StartExecution",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Ref": "TesterTestsProviderwaiterstatemachine7E5EAE02",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "TesterTestsProviderframeworkonEventServiceRoleDefaultPolicyB044D708",
+        "Roles": Array [
+          Object {
+            "Ref": "TesterTestsProviderframeworkonEventServiceRole15D64904",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "TesterTestsProviderframeworkonTimeoutCACDEA8B": Object {
+      "DependsOn": Array [
+        "TesterTestsProviderframeworkonTimeoutServiceRoleDefaultPolicy9A4E7BC0",
+        "TesterTestsProviderframeworkonTimeoutServiceRole4764D3E3",
+      ],
+      "Properties": Object {
+        "Code": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "eaeb69bc290b516fe3b049f89d6118b22249df682fbabf56af300cf345198574.zip",
+        },
+        "Description": "AWS CDK resource provider framework - onTimeout (test/Tester/Tests/Provider)",
+        "Environment": Object {
+          "Variables": Object {
+            "USER_IS_COMPLETE_FUNCTION_ARN": Object {
+              "Fn::GetAtt": Array [
+                "TesterTestsIsCompleteHandler43699701",
+                "Arn",
+              ],
+            },
+            "USER_ON_EVENT_FUNCTION_ARN": Object {
+              "Fn::GetAtt": Array [
+                "TesterTestsOnEventHandler3A27D66C",
+                "Arn",
+              ],
+            },
+          },
+        },
+        "Handler": "framework.onTimeout",
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "TesterTestsProviderframeworkonTimeoutServiceRole4764D3E3",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs14.x",
+        "Timeout": 900,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "TesterTestsProviderframeworkonTimeoutLogRetention8E5CC5F6": Object {
+      "Properties": Object {
+        "LogGroupName": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "/aws/lambda/",
+              Object {
+                "Ref": "TesterTestsProviderframeworkonTimeoutCACDEA8B",
+              },
+            ],
+          ],
+        },
+        "RetentionInDays": 30,
+        "ServiceToken": Object {
+          "Fn::GetAtt": Array [
+            "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "Custom::LogRetention",
+    },
+    "TesterTestsProviderframeworkonTimeoutServiceRole4764D3E3": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "TesterTestsProviderframeworkonTimeoutServiceRoleDefaultPolicy9A4E7BC0": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "lambda:InvokeFunction",
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "TesterTestsOnEventHandler3A27D66C",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "TesterTestsOnEventHandler3A27D66C",
+                          "Arn",
+                        ],
+                      },
+                      ":*",
+                    ],
+                  ],
+                },
+              ],
+            },
+            Object {
+              "Action": "lambda:InvokeFunction",
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "TesterTestsIsCompleteHandler43699701",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "TesterTestsIsCompleteHandler43699701",
+                          "Arn",
+                        ],
+                      },
+                      ":*",
+                    ],
+                  ],
+                },
+              ],
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "TesterTestsProviderframeworkonTimeoutServiceRoleDefaultPolicy9A4E7BC0",
+        "Roles": Array [
+          Object {
+            "Ref": "TesterTestsProviderframeworkonTimeoutServiceRole4764D3E3",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "TesterTestsProviderwaiterstatemachine7E5EAE02": Object {
+      "DependsOn": Array [
+        "TesterTestsProviderwaiterstatemachineRoleDefaultPolicyC87B3213",
+        "TesterTestsProviderwaiterstatemachineRole412ACA06",
+      ],
+      "Properties": Object {
+        "DefinitionString": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "{\\"StartAt\\":\\"framework-isComplete-task\\",\\"States\\":{\\"framework-isComplete-task\\":{\\"End\\":true,\\"Retry\\":[{\\"ErrorEquals\\":[\\"States.ALL\\"],\\"IntervalSeconds\\":5,\\"MaxAttempts\\":360,\\"BackoffRate\\":1}],\\"Catch\\":[{\\"ErrorEquals\\":[\\"States.ALL\\"],\\"Next\\":\\"framework-onTimeout-task\\"}],\\"Type\\":\\"Task\\",\\"Resource\\":\\"",
+              Object {
+                "Fn::GetAtt": Array [
+                  "TesterTestsProviderframeworkisComplete1488F88A",
+                  "Arn",
+                ],
+              },
+              "\\"},\\"framework-onTimeout-task\\":{\\"End\\":true,\\"Type\\":\\"Task\\",\\"Resource\\":\\"",
+              Object {
+                "Fn::GetAtt": Array [
+                  "TesterTestsProviderframeworkonTimeoutCACDEA8B",
+                  "Arn",
+                ],
+              },
+              "\\"}}}",
+            ],
+          ],
+        },
+        "RoleArn": Object {
+          "Fn::GetAtt": Array [
+            "TesterTestsProviderwaiterstatemachineRole412ACA06",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::StepFunctions::StateMachine",
+    },
+    "TesterTestsProviderwaiterstatemachineRole412ACA06": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": Object {
+                  "Fn::FindInMap": Array [
+                    "ServiceprincipalMap",
+                    Object {
+                      "Ref": "AWS::Region",
+                    },
+                    "states",
+                  ],
+                },
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "TesterTestsProviderwaiterstatemachineRoleDefaultPolicyC87B3213": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "lambda:InvokeFunction",
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "TesterTestsProviderframeworkisComplete1488F88A",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "TesterTestsProviderframeworkisComplete1488F88A",
+                          "Arn",
+                        ],
+                      },
+                      ":*",
+                    ],
+                  ],
+                },
+              ],
+            },
+            Object {
+              "Action": "lambda:InvokeFunction",
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "TesterTestsProviderframeworkonTimeoutCACDEA8B",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "TesterTestsProviderframeworkonTimeoutCACDEA8B",
+                          "Arn",
+                        ],
+                      },
+                      ":*",
+                    ],
+                  ],
+                },
+              ],
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "TesterTestsProviderwaiterstatemachineRoleDefaultPolicyC87B3213",
+        "Roles": Array [
+          Object {
+            "Ref": "TesterTestsProviderwaiterstatemachineRole412ACA06",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "TesterTestsResource6068576DB531123": Object {
+      "DeletionPolicy": "Delete",
+      "Properties": Object {
+        "ServiceToken": Object {
+          "Fn::GetAtt": Array [
+            "TesterTestsProviderframeworkonEventEAD32E47",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::CloudFormation::CustomResource",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "TesterTestsStateMachine8B6B417C": Object {
+      "DependsOn": Array [
+        "TesterTestsStateMachineRoleDefaultPolicyC765736A",
+        "TesterTestsStateMachineRoleB467DD4F",
+      ],
+      "Properties": Object {
+        "DefinitionString": Object {
+          "Fn::Join": Array [
+            "",
+            Array [
+              "{\\"StartAt\\":\\"Validations\\",\\"States\\":{\\"Validations\\":{\\"Type\\":\\"Parallel\\",\\"End\\":true,\\"Branches\\":[{\\"StartAt\\":\\"[0] StateMachineExecutionSucceeds\\",\\"States\\":{\\"[0] StateMachineExecutionSucceeds\\":{\\"End\\":true,\\"Catch\\":[{\\"ErrorEquals\\":[\\"States.ALL\\"],\\"Next\\":\\"[0] StateMachineExecutionSucceeds - Alarming\\"}],\\"Type\\":\\"Task\\",\\"Resource\\":\\"arn:",
+              Object {
+                "Ref": "AWS::Partition",
+              },
+              ":states:::states:startExecution.sync:2\\",\\"Parameters\\":{\\"Input.$\\":\\"$\\",\\"StateMachineArn\\":\\"",
+              Object {
+                "Ref": "TesterTestingMachine249ED5B8",
+              },
+              "\\"}},\\"[0] StateMachineExecutionSucceeds - Alarming\\":{\\"Type\\":\\"Fail\\",\\"Error\\":\\"ExecutionFailed\\",\\"Cause\\":\\"",
+              Object {
+                "Ref": "TesterTestingMachine249ED5B8",
+              },
+              " failed to execute\\"}}}]}}}",
+            ],
+          ],
+        },
+        "RoleArn": Object {
+          "Fn::GetAtt": Array [
+            "TesterTestsStateMachineRoleB467DD4F",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::StepFunctions::StateMachine",
+    },
+    "TesterTestsStateMachineRoleB467DD4F": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": Object {
+                  "Fn::FindInMap": Array [
+                    "ServiceprincipalMap",
+                    Object {
+                      "Ref": "AWS::Region",
+                    },
+                    "states",
+                  ],
+                },
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "TesterTestsStateMachineRoleDefaultPolicyC765736A": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "states:StartExecution",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Ref": "TesterTestingMachine249ED5B8",
+              },
+            },
+            Object {
+              "Action": Array [
+                "states:DescribeExecution",
+                "states:StopExecution",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    "arn:",
+                    Object {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":states:",
+                    Object {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
+                    Object {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":execution:",
+                    Object {
+                      "Fn::Select": Array [
+                        6,
+                        Object {
+                          "Fn::Split": Array [
+                            ":",
+                            Object {
+                              "Ref": "TesterTestingMachine249ED5B8",
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                    "*",
+                  ],
+                ],
+              },
+            },
+            Object {
+              "Action": Array [
+                "events:PutTargets",
+                "events:PutRule",
+                "events:DescribeRule",
+              ],
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::Join": Array [
+                  "",
+                  Array [
+                    "arn:",
+                    Object {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":events:",
+                    Object {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
+                    Object {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":rule/StepFunctionsGetEventsForStepFunctionsExecutionRule",
+                  ],
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "TesterTestsStateMachineRoleDefaultPolicyC765736A",
+        "Roles": Array [
+          Object {
+            "Ref": "TesterTestsStateMachineRoleB467DD4F",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "TranscodingTriggerMediaConvertRoleDefaultPolicy5C2D9AFA": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": Array [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+              ],
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "MediaBucketBCBB02BA",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "MediaBucketBCBB02BA",
+                          "Arn",
+                        ],
+                      },
+                      "/uploads/*",
+                    ],
+                  ],
+                },
+              ],
+            },
+            Object {
+              "Action": Array [
+                "s3:DeleteObject*",
+                "s3:PutObject",
+                "s3:PutObjectLegalHold",
+                "s3:PutObjectRetention",
+                "s3:PutObjectTagging",
+                "s3:PutObjectVersionTagging",
+                "s3:Abort*",
+              ],
+              "Effect": "Allow",
+              "Resource": Array [
+                Object {
+                  "Fn::GetAtt": Array [
+                    "MediaBucketBCBB02BA",
+                    "Arn",
+                  ],
+                },
+                Object {
+                  "Fn::Join": Array [
+                    "",
+                    Array [
+                      Object {
+                        "Fn::GetAtt": Array [
+                          "MediaBucketBCBB02BA",
+                          "Arn",
+                        ],
+                      },
+                      "/converted/*",
+                    ],
+                  ],
+                },
+              ],
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "TranscodingTriggerMediaConvertRoleDefaultPolicy5C2D9AFA",
+        "Roles": Array [
+          Object {
+            "Ref": "TranscodingTriggerMediaConvertRoleF2CB0EA8",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "TranscodingTriggerMediaConvertRoleF2CB0EA8": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "mediaconvert.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "TranscodingTriggerSourceBucketTrigger17093DFA": Object {
+      "Properties": Object {
+        "EventPattern": Object {
+          "detail": Object {
+            "bucket": Object {
+              "name": Array [
+                Object {
+                  "Ref": "MediaBucketBCBB02BA",
+                },
+              ],
+            },
+            "object": Object {
+              "key": Array [
+                Object {
+                  "prefix": "uploads/",
+                },
+              ],
+            },
+          },
+          "detail-type": Array [
+            "Object Created",
+          ],
+          "source": Array [
+            "aws.s3",
+          ],
+        },
+        "State": "ENABLED",
+        "Targets": Array [
+          Object {
+            "Arn": Object {
+              "Fn::GetAtt": Array [
+                "TranscodingTriggerTriggerTranscodingFunction8051EF23",
+                "Arn",
+              ],
+            },
+            "Id": "Target0",
+          },
+        ],
+      },
+      "Type": "AWS::Events::Rule",
+    },
+    "TranscodingTriggerSourceBucketTriggerAllowEventRuletestTranscodingTriggerTriggerTranscodingFunction1BBE578290E7855F": Object {
+      "Properties": Object {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": Object {
+          "Fn::GetAtt": Array [
+            "TranscodingTriggerTriggerTranscodingFunction8051EF23",
+            "Arn",
+          ],
+        },
+        "Principal": "events.amazonaws.com",
+        "SourceArn": Object {
+          "Fn::GetAtt": Array [
+            "TranscodingTriggerSourceBucketTrigger17093DFA",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::Lambda::Permission",
+    },
+    "TranscodingTriggerTriggerTranscodingFunction8051EF23": Object {
+      "DependsOn": Array [
+        "TranscodingTriggerTriggerTranscodingFunctionServiceRoleDefaultPolicy32732F79",
+        "TranscodingTriggerTriggerTranscodingFunctionServiceRole968F38DE",
+      ],
+      "Properties": Object {
+        "Code": Object {
+          "S3Bucket": Object {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "293e6f444b0ee24e2c7d66ac997c4b8742271759db804c91a0223604a1f05c4c.zip",
+        },
+        "Environment": Object {
+          "Variables": Object {
+            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+            "DD_API_KEY": "asdasdf",
+            "DD_CAPTURE_LAMBDA_PAYLOAD": "false",
+            "DD_FLUSH_TO_LOG": "true",
+            "DD_LAMBDA_HANDLER": "index.handler",
+            "DD_LOGS_INJECTION": "true",
+            "DD_SERVERLESS_LOGS_ENABLED": "true",
+            "DD_TRACE_ENABLED": "true",
+            "MEDIA_CONVERT_ROLE_ARN": Object {
+              "Fn::GetAtt": Array [
+                "TranscodingTriggerMediaConvertRoleF2CB0EA8",
+                "Arn",
+              ],
+            },
+          },
+        },
+        "Handler": "/opt/nodejs/node_modules/datadog-lambda-js/handler.handler",
+        "Layers": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:aws:lambda:",
+                Object {
+                  "Ref": "AWS::Region",
+                },
+                ":464622532012:layer:Datadog-Node14-x:81",
+              ],
+            ],
+          },
+        ],
+        "Role": Object {
+          "Fn::GetAtt": Array [
+            "TranscodingTriggerTriggerTranscodingFunctionServiceRole968F38DE",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs14.x",
+        "Tags": Array [
+          Object {
+            "Key": "dd_cdk_construct",
+            "Value": "v0.3.3",
+          },
+        ],
+        "TracingConfig": Object {
+          "Mode": "Active",
+        },
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "TranscodingTriggerTriggerTranscodingFunctionServiceRole968F38DE": Object {
+      "Properties": Object {
+        "AssumeRolePolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": Object {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": Array [
+          Object {
+            "Fn::Join": Array [
+              "",
+              Array [
+                "arn:",
+                Object {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "TranscodingTriggerTriggerTranscodingFunctionServiceRoleDefaultPolicy32732F79": Object {
+      "Properties": Object {
+        "PolicyDocument": Object {
+          "Statement": Array [
+            Object {
+              "Action": Array [
+                "xray:PutTraceSegments",
+                "xray:PutTelemetryRecords",
+              ],
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+            Object {
+              "Action": "mediaconvert:DescribeEndpoints",
+              "Effect": "Allow",
+              "Resource": "arn:aws:mediaconvert:us-east-1:581514672367:endpoints/*",
+            },
+            Object {
+              "Action": "mediaconvert:CreateJob",
+              "Effect": "Allow",
+              "Resource": "arn:aws:mediaconvert:us-east-1:581514672367:queues/Default",
+            },
+            Object {
+              "Action": "iam:PassRole",
+              "Effect": "Allow",
+              "Resource": Object {
+                "Fn::GetAtt": Array [
+                  "TranscodingTriggerMediaConvertRoleF2CB0EA8",
+                  "Arn",
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "TranscodingTriggerTriggerTranscodingFunctionServiceRoleDefaultPolicy32732F79",
+        "Roles": Array [
+          Object {
+            "Ref": "TranscodingTriggerTriggerTranscodingFunctionServiceRole968F38DE",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+  },
+  "Rules": Object {
+    "CheckBootstrapVersion": Object {
+      "Assertions": Array [
+        Object {
+          "Assert": Object {
+            "Fn::Not": Array [
+              Object {
+                "Fn::Contains": Array [
+                  Array [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5",
+                  ],
+                  Object {
+                    "Ref": "BootstrapVersion",
+                  },
+                ],
+              },
+            ],
+          },
+          "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI.",
+        },
+      ],
+    },
+  },
+}
+`;

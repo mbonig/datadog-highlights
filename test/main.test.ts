@@ -4,7 +4,7 @@ import { VideoEncoderStack } from '../src/VideoEncoderStack';
 
 test('Snapshot', () => {
   const app = new App();
-  const stack = new VideoEncoderStack(app, 'test');
+  const stack = new VideoEncoderStack(app, 'test', { datadogApiKey: 'asdasdf' });
 
   const template = Template.fromStack(stack);
   expect(template.toJSON()).toMatchSnapshot();

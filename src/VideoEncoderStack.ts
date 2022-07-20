@@ -6,6 +6,7 @@ import { TriggerTranscodingFunction } from './constructs/TriggerTranscoding/Trig
 import { VideoTranscodingStackTest } from './constructs/VideoTranscodingStackTest/VideoTranscodingStackTest';
 
 interface VideoEncoderStackProps extends StackProps {
+  readonly datadogApiKey: string;
 
 }
 
@@ -33,7 +34,7 @@ export class VideoEncoderStack extends Stack {
     const datadog = new Datadog(this, 'Datadog', {
       nodeLayerVersion: 81,
       addLayers: true,
-      apiKey: '6f194f7c5766a544765cd0658953342e',
+      apiKey: props.datadogApiKey,
       enableDatadogTracing: true,
       enableDatadogLogs: true,
       env: 'dev',

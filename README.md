@@ -1,4 +1,4 @@
-# Testing the Intrinsic Validator
+# Testing the Datadog Constructs
 
-This repo is used to get familiar and test out the @wheatstalk/cdk-intrinsic-validator module.
+This repo is used to get familiar and test out the datadog-cdk-constructs-v2 module.
 

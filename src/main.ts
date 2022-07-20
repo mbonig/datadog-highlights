@@ -4,6 +4,6 @@ import { VideoEncoderStack } from './VideoEncoderStack';
 
 const app = new App();
 
-new VideoEncoderStack(app, 'intrinsic-highlights-test', { });
+new VideoEncoderStack(app, 'intrinsic-highlights-test', { datadogApiKey: process.env.DATADOG_API_KEY! });
 
 app.synth();
